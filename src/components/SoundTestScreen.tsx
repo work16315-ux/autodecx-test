@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mic, Play, Square, RotateCcw } from "lucide-react";
+import { uploadAudio } from "@/lib/api";
 
 type RecordingState = "initial" | "countdown" | "recording" | "playback" | "analyzed";
 
@@ -14,6 +15,7 @@ export default function SoundTestScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string>("");
   const [showControls, setShowControls] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -69,7 +71,7 @@ export default function SoundTestScreen() {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         setAudioBlob(audioBlob);
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -113,13 +115,45 @@ export default function SoundTestScreen() {
     }
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
+    if (!audioBlob) {
+      alert("No audio to analyze");
+      return;
+    }
+
     setState("analyzed");
-    setTimeout(() => {
+    setIsAnalyzing(true);
+    setAnalysisResult("⏳ Analyzing audio...\n\nPlease wait...");
+
+    try {
+      console.log("📤 Uploading audio to backend...");
+      const result = await uploadAudio(audioBlob);
+      console.log("✅ Analysis result received:", result);
+
+      const formattedResult = `✓ Audio analysis complete
+
+Sound Quality: ${result.issues.length === 0 ? 'Excellent' : 'Good'}
+Duration: ${result.metrics.duration.toFixed(1)} seconds
+Sample Rate: ${(result.metrics.sample_rate / 1000).toFixed(1)} kHz
+Dominant Frequency: ${result.metrics.dominant_frequency.toFixed(0)} Hz
+Vibration Level: ${(result.metrics.vibration_level * 100).toFixed(1)}%
+
+${result.predicted_issue}
+Confidence: ${(result.confidence * 100).toFixed(0)}%
+
+${result.issues.length > 0 ? '\n⚠️ Issues Detected:\n' + result.issues.map(issue => `• ${issue.message}`).join('\n') : '✓ No significant issues detected.'}`;
+
+      setAnalysisResult(formattedResult);
+
+    } catch (error) {
+      console.error("❌ Analysis failed:", error);
+      
       setAnalysisResult(
-        "✓ Audio analysis complete\n\nSound Quality: Excellent\nDuration: 10.0 seconds\nSample Rate: 48 kHz\nBit Depth: 16-bit\nFormat: WAV\n\nNo background noise detected. Recording is clear and suitable for hearing test analysis."
+        `❌ Analysis Failed\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease ensure:\n• Flask backend is running on port 5000\n• CORS is properly configured\n• Audio file is valid`
       );
-    }, 1500);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleReRecord = () => {
@@ -229,14 +263,14 @@ export default function SoundTestScreen() {
         {(state === "playback" || state === "analyzed") && (
           <Button
             onClick={handleAnalyze}
-            disabled={state === "analyzed"}
+            disabled={state === "analyzed" || isAnalyzing}
             size="lg"
             className={`w-full max-w-sm h-16 sm:h-[72px] text-base sm:text-lg font-bold rounded-2xl bg-gradient-to-r from-teal-500 via-teal-600 to-cyan-600 hover:from-teal-600 hover:via-teal-700 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 shadow-[0_8px_24px_rgb(20,184,166,0.35)] hover:shadow-[0_12px_32px_rgb(20,184,166,0.45)] transition-all duration-300 active:scale-95 border-2 border-white ${
               showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}
             style={{ transitionDelay: '100ms' }}
           >
-            {state === "analyzed" ? "✓ Analysis Complete" : "Analyze Recording"}
+            {isAnalyzing ? "⏳ Analyzing..." : state === "analyzed" ? "✓ Analysis Complete" : "Analyze Recording"}
           </Button>
         )}
 

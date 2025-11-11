@@ -1,5 +1,4 @@
-# app.py - PRODUCTION-READY VERSION
-
+# app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import librosa
@@ -12,7 +11,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# CRITICAL FIX #1: Restrict CORS to your frontend origin
+# Configure CORS to allow requests from your frontend
 CORS(app, resources={
     r"/upload": {
         "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -24,9 +23,17 @@ CORS(app, resources={
 UPLOAD_FOLDER = Path('./uploads')
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 
-# CRITICAL FIX #2: Add file size limit (10 MB)
+# File size limit (10 MB)
 MAX_FILE_SIZE = 10 * 1024 * 1024
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({
+        'status': 'running',
+        'service': 'AutoDecX Audio Analysis API',
+        'version': '1.0.0'
+    })
 
 @app.route('/upload', methods=['POST', 'OPTIONS'])
 def upload_audio():
@@ -34,11 +41,10 @@ def upload_audio():
         return '', 204
     
     print("\n" + "="*60)
-    print("🎵 UPLOAD REQUEST RECEIVED")
+    print("🎵 AUDIO UPLOAD RECEIVED")
     print("="*60)
     
     try:
-        # CRITICAL FIX #3: Validate file presence
         if 'audio' not in request.files:
             print("❌ No 'audio' field found")
             return jsonify({'error': 'No audio file provided'}), 400
@@ -48,7 +54,7 @@ def upload_audio():
         if file.filename == '':
             return jsonify({'error': 'Empty filename'}), 400
         
-        # CRITICAL FIX #4: Use unique filenames to prevent overwrites
+        # Use unique filenames
         unique_id = str(uuid.uuid4())[:8]
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
@@ -61,13 +67,13 @@ def upload_audio():
         file_size = original_path.stat().st_size
         print(f"📊 File size: {file_size:,} bytes")
         
-        # CRITICAL FIX #5: Explicit FFmpeg codec for consistent output
+        # FFmpeg conversion with explicit codec
         ffmpeg_command = [
             "ffmpeg", "-y",
             "-i", str(original_path),
-            "-ac", "1",              # Mono
-            "-ar", "44100",          # 44.1kHz sample rate
-            "-acodec", "pcm_s16le",  # 16-bit PCM (explicit!)
+            "-ac", "1",
+            "-ar", "44100",
+            "-acodec", "pcm_s16le",
             str(converted_path)
         ]
         
@@ -77,7 +83,7 @@ def upload_audio():
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=30  # CRITICAL FIX #6: Add timeout
+            timeout=30
         )
         print("✅ Conversion complete")
         
@@ -93,7 +99,7 @@ def upload_audio():
         # Tempo detection with error handling
         try:
             tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-            tempo = float(tempo) if tempo else 0.0
+            tempo = float(tempo.item()) if tempo is not None and tempo.size > 0 else 0.0
         except Exception as e:
             print(f"⚠️ Tempo detection failed: {e}")
             tempo = 0.0
@@ -106,8 +112,9 @@ def upload_audio():
         print(f"🎯 RMS: {rms:.4f}")
         print(f"〰️  ZCR: {zcr:.4f}")
         print(f"🎵 Tempo: {tempo:.1f} BPM")
+        print(f"📊 Spectral Centroid: {spectral_centroid:.1f} Hz")
         
-        # CRITICAL FIX #7: Clean up temporary files
+        # Clean up temporary files
         os.remove(original_path)
         os.remove(converted_path)
         print("🧹 Temporary files cleaned up")
@@ -126,7 +133,7 @@ def upload_audio():
                 'vibration_level': round(rms, 4)
             },
             'issues': [],
-            'predicted_issue': 'Analysis complete',
+            'predicted_issue': 'No significant issues detected',
             'confidence': 0.85
         }
         
@@ -136,6 +143,13 @@ def upload_audio():
                 'type': 'high_vibration',
                 'severity': 'warning',
                 'message': 'Elevated vibration levels detected'
+            })
+        
+        if spectral_centroid > 3000:
+            response['issues'].append({
+                'type': 'high_frequency_noise',
+                'severity': 'info',
+                'message': 'High-frequency noise present - possible belt squeal or bearing wear'
             })
         
         if zcr > 0.2:
@@ -165,15 +179,6 @@ def upload_audio():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/', methods=['GET'])
-def health_check():
-    return jsonify({
-        'status': 'running',
-        'service': 'AutoDecX Audio Analysis API',
-        'version': '1.0.0'
-    })
-
-# CRITICAL FIX #8: Disable debug mode for production
 if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 AutoDecX Audio Analysis Backend")
@@ -184,10 +189,8 @@ if __name__ == '__main__':
     print("   POST /upload → Audio analysis")
     print("="*60 + "\n")
     
-    # Use debug=False for production
-    # For production, use: gunicorn -w 4 -b 0.0.0.0:5000 app:app
     app.run(
         host='127.0.0.1',
         port=5000,
-        debug=True  # Set to False in production!
+        debug=True
     )
