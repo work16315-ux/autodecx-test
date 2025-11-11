@@ -1,34 +1,40 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
 
-node_modules
-dist
-dist-ssr
-*.local
+# Audio uploads (CRITICAL - don't commit user data)
+uploads/
+*.wav
+*.webm
+*.mp3
+*.ogg
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Python binaries (CRITICAL - don't commit these)
+python.exe
+pythonw.exe
+python3.dll
+python313.dll
+vcruntime*.dll
+
+# CPython docs (not needed in your app)
+Doc/
+Lib/
+DLLs/
+include/
+libs/
+tcl/
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
+
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-!node_modules/.vite
-
-**/tempobook/dynamic/
-**/tempobook/storyboards/
-
-core
-
-.github/
-
+Thumbs.db
