@@ -1,65 +1,67 @@
-import { useState, useEffect, useRef } from "react";
+// src/components/SoundTestScreen.tsx
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Mic, Play, Square, RotateCcw } from "lucide-react";
+import { Mic, Square, RotateCcw, BarChart3 } from "lucide-react";
+import WaveSurfer from "wavesurfer.js";
+import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
+import { uploadAudio } from "../lib/api";
 
-type RecordingState = "initial" | "countdown" | "recording" | "playback" | "analyzed";
+type RecordingState = "initial" | "recording" | "playback" | "analyzed";
 
 export default function SoundTestScreen() {
   const [state, setState] = useState<RecordingState>("initial");
-  const [countdown, setCountdown] = useState(3);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioBlob, setAudioBlob] = useState<File | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<string>("");
-  const [showControls, setShowControls] = useState(false);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const waveformRef = useRef<HTMLDivElement | null>(null);
+  const spectrogramRef = useRef<HTMLDivElement | null>(null);
+  const wavesurferRef = useRef<WaveSurfer | null>(null);
 
-  // Countdown effect
-  useEffect(() => {
-    if (state === "countdown" && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (state === "countdown" && countdown === 0) {
-      startRecording();
+  // ✅ Generate 256-color colormap for the spectrogram
+  const generateColorMap = () => {
+    const colorMap = [];
+    for (let i = 0; i < 256; i++) {
+      const r = Math.floor((i / 255) * 255);
+      const g = Math.floor(255 - (i / 255) * 255);
+      const b = Math.floor(128 + Math.sin(i / 10) * 127);
+      colorMap.push([r / 255, g / 255, b / 255, 1]);
     }
-  }, [state, countdown]);
-
-  // Recording timer effect
-  useEffect(() => {
-    if (state === "recording" && recordingTime < 10) {
-      const timer = setTimeout(() => {
-        setRecordingTime(recordingTime + 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (state === "recording" && recordingTime >= 10) {
-      stopRecording();
-    }
-  }, [state, recordingTime]);
-
-  // Fade in controls after recording
-  useEffect(() => {
-    if (state === "playback" || state === "analyzed") {
-      setTimeout(() => setShowControls(true), 100);
-    } else {
-      setShowControls(false);
-    }
-  }, [state]);
-
-  const handleRecordClick = async () => {
-    setState("countdown");
-    setCountdown(3);
-    setRecordingTime(0);
-    setAnalysisResult("");
-    setAudioBlob(null);
+    return colorMap;
   };
 
-  const startRecording = async () => {
+  // ✅ Initialize Wavesurfer once
+  useEffect(() => {
+    if (waveformRef.current && !wavesurferRef.current) {
+      const ws = WaveSurfer.create({
+        container: waveformRef.current,
+        waveColor: "#5eead4",
+        progressColor: "#14b8a6",
+        cursorColor: "#0d9488",
+        height: 100,
+        normalize: true,
+      });
+
+      const spectrogram = SpectrogramPlugin.create({
+        container: spectrogramRef.current!,
+        labels: true,
+        height: 150,
+        fftSamples: 512,
+        colorMap: generateColorMap(),
+      });
+
+      ws.registerPlugin(spectrogram);
+      wavesurferRef.current = ws;
+    }
+  }, []);
+
+  // ✅ Recording logic
+  const handleRecord = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -67,213 +69,151 @@ export default function SoundTestScreen() {
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-        setAudioBlob(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        const file = new File([blob], "recording.wav", { type: "audio/wav" });
+        setAudioBlob(file);
+
+        const url = URL.createObjectURL(file);
+        if (audioRef.current) audioRef.current.src = url;
+
+        wavesurferRef.current?.loadBlob(file);
+        setState("playback");
       };
 
       mediaRecorder.start();
       setState("recording");
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
-      alert("Unable to access microphone. Please grant permission and try again.");
-      setState("initial");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      setState("playback");
-    }
-  };
-
-  const handlePlay = () => {
-    if (audioBlob && !isPlaying) {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setIsPlaying(false);
-      };
-
-      audio.play();
-      setIsPlaying(true);
+    } catch (err) {
+      console.error("Recording error:", err);
     }
   };
 
   const handleStop = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(false);
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+  };
+
+  const handlePlay = () => {
+    const ws = wavesurferRef.current;
+    if (ws) {
+      ws.playPause();
+      setIsPlaying((prev) => !prev);
     }
   };
 
-  const handleAnalyze = () => {
-    setState("analyzed");
-    setTimeout(() => {
-      setAnalysisResult(
-        "✓ Audio analysis complete\n\nSound Quality: Excellent\nDuration: 10.0 seconds\nSample Rate: 48 kHz\nBit Depth: 16-bit\nFormat: WAV\n\nNo background noise detected. Recording is clear and suitable for hearing test analysis."
-      );
-    }, 1500);
+  // ✅ Analyze via Flask API
+  const handleAnalyze = async () => {
+    if (!audioBlob) return;
+    setIsLoading(true);
+    try {
+      const result = await uploadAudio(audioBlob);
+      console.log("Analysis Results:", result);
+      setAnalysis(result);
+      setState("analyzed");
+    } catch (err) {
+      console.error("Analysis failed:", err);
+      alert("Error analyzing audio. Check Flask console.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleReRecord = () => {
-    // Stop any playing audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    
-    // Reset all state
-    setState("initial");
-    setCountdown(3);
-    setRecordingTime(0);
+  const handleReset = () => {
     setAudioBlob(null);
+    setAnalysis(null);
+    setState("initial");
     setIsPlaying(false);
-    setAnalysisResult("");
-    setShowControls(false);
+    wavesurferRef.current?.empty();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex flex-col items-center px-5 py-6 sm:py-10">
-      {/* Header */}
-      <div className="w-full max-w-md mb-8 sm:mb-12 relative">
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 text-center tracking-tight">
-          Autodecx — Sound Test (Trial)
-        </h1>
-        
-        {/* Re-record Button - Top Right */}
-        {(state === "playback" || state === "analyzed") && (
-          <Button
-            onClick={handleReRecord}
-            variant="ghost"
-            size="sm"
-            className={`absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all duration-300 ${
-              showControls ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-            }`}
-          >
-            <RotateCcw className="w-4 h-4 mr-1.5" />
-            <span className="text-sm font-medium">Re-record</span>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 overflow-hidden">
+      <h1 className="text-3xl font-semibold text-primary mb-6 text-center">
+        Autodecx — Reliable Audio Test + Spectrogram
+      </h1>
+
+      {/* Record Button */}
+      {state === "initial" && (
+        <Button
+          onClick={handleRecord}
+          className="rounded-full w-48 h-48 text-xl bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+        >
+          <Mic className="w-6 h-6 mr-2" /> Record
+        </Button>
+      )}
+
+      {/* Waveform + Spectrogram (visible only after recording) */}
+      {(state === "playback" || state === "analyzed") && (
+        <div className="w-full max-w-3xl mt-8 flex flex-col items-center gap-3">
+          <div
+            ref={waveformRef}
+            className="w-full bg-card shadow rounded-xl overflow-hidden"
+          />
+          <div
+            ref={spectrogramRef}
+            className="w-full bg-card shadow rounded-xl overflow-hidden"
+          />
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="flex gap-3 mt-6 flex-wrap justify-center">
+        {state === "recording" ? (
+          <Button onClick={handleStop} className="bg-red-500 hover:bg-red-600 text-white">
+            <Square className="w-5 h-5 mr-2" /> Stop
           </Button>
+        ) : (
+          <>
+            <Button onClick={handlePlay} disabled={!audioBlob}>
+              {isPlaying ? (
+                <>
+                  <Square className="w-5 h-5 mr-2" /> Pause
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-5 h-5 mr-2" /> Play
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={handleAnalyze}
+              disabled={!audioBlob || isLoading}
+              className="bg-teal-500 hover:bg-teal-600 text-white"
+            >
+              {isLoading ? "Analyzing..." : "Analyze"}
+            </Button>
+
+            <Button variant="outline" onClick={handleReset}>
+              Reset
+            </Button>
+          </>
         )}
       </div>
 
-      {/* Main Content */}
-      <div className="w-full max-w-md flex flex-col items-center space-y-6 sm:space-y-8">
-        {/* Record Button */}
-        <div className="relative mb-4">
-          <Button
-            onClick={handleRecordClick}
-            disabled={state !== "initial"}
-            size="lg"
-            className="w-44 h-44 sm:w-48 sm:h-48 rounded-full bg-gradient-to-br from-teal-400 via-teal-500 to-cyan-600 hover:from-teal-500 hover:via-teal-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-[0_8px_30px_rgb(20,184,166,0.4)] hover:shadow-[0_12px_40px_rgb(20,184,166,0.5)] transition-all duration-300 hover:scale-105 active:scale-95 border-4 border-white"
-          >
-            <div className="flex flex-col items-center justify-center">
-              <Mic className="w-14 h-14 sm:w-16 sm:h-16 text-white mb-2 drop-shadow-lg" strokeWidth={2.5} />
-              <span className="text-white font-semibold text-xl drop-shadow-md">Record</span>
-            </div>
-          </Button>
-
-          {/* Countdown Overlay */}
-          {state === "countdown" && countdown > 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-full backdrop-blur-sm animate-in fade-in duration-200">
-              <span className="text-7xl sm:text-8xl font-bold text-white animate-pulse drop-shadow-2xl">
-                {countdown}
-              </span>
-            </div>
-          )}
-
-          {/* Recording Pulse Animation */}
-          {state === "recording" && (
-            <div className="absolute inset-0 rounded-full border-4 border-teal-400 animate-ping opacity-75" />
-          )}
-        </div>
-
-        {/* Recording Timer */}
-        {(state === "recording" || state === "playback" || state === "analyzed") && (
-          <div className="text-center animate-in fade-in slide-in-from-top-4 duration-500">
-            <p className="text-xs sm:text-sm text-gray-500 mb-1 font-medium uppercase tracking-wide">
-              Recording Time
-            </p>
-            <p className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent drop-shadow-sm">
-              {recordingTime.toString().padStart(2, "0")}s
-            </p>
-          </div>
-        )}
-
-        {/* Playback Controls */}
-        {(state === "playback" || state === "analyzed") && (
-          <div 
-            className={`flex gap-3 w-full max-w-sm transition-all duration-500 ${
-              showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-          >
-            <Button
-              onClick={handlePlay}
-              disabled={isPlaying}
-              size="lg"
-              variant="outline"
-              className="flex-1 h-16 sm:h-[72px] text-base sm:text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-teal-200 hover:border-teal-400 hover:bg-gradient-to-br hover:from-teal-50 hover:to-cyan-50 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-            >
-              <Play className="w-5 h-5 sm:w-6 sm:h-6 mr-2" fill={isPlaying ? "currentColor" : "none"} />
-              Play
-            </Button>
-            <Button
-              onClick={handleStop}
-              disabled={!isPlaying}
-              size="lg"
-              variant="outline"
-              className="flex-1 h-16 sm:h-[72px] text-base sm:text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-gray-300 hover:border-gray-400 hover:bg-gradient-to-br hover:from-gray-50 hover:to-gray-100 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-            >
-              <Square className="w-5 h-5 sm:w-6 sm:h-6 mr-2" fill={isPlaying ? "currentColor" : "none"} />
-              Stop
-            </Button>
-          </div>
-        )}
-
-        {/* Analyze Button */}
-        {(state === "playback" || state === "analyzed") && (
-          <Button
-            onClick={handleAnalyze}
-            disabled={state === "analyzed"}
-            size="lg"
-            className={`w-full max-w-sm h-16 sm:h-[72px] text-base sm:text-lg font-bold rounded-2xl bg-gradient-to-r from-teal-500 via-teal-600 to-cyan-600 hover:from-teal-600 hover:via-teal-700 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 shadow-[0_8px_24px_rgb(20,184,166,0.35)] hover:shadow-[0_12px_32px_rgb(20,184,166,0.45)] transition-all duration-300 active:scale-95 border-2 border-white ${
-              showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-            style={{ transitionDelay: '100ms' }}
-          >
-            {state === "analyzed" ? "✓ Analysis Complete" : "Analyze Recording"}
-          </Button>
-        )}
-
-        {/* Results Placeholder */}
-        <Card 
-          className={`w-full max-w-sm p-5 sm:p-6 rounded-2xl border-2 border-gray-200 bg-gradient-to-br from-gray-50 via-white to-gray-100 min-h-[140px] shadow-lg transition-all duration-500 ${
-            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
-          style={{ transitionDelay: '200ms' }}
-        >
-          <p className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-            Analysis Results
+      {/* Analysis Results */}
+      {(state === "analyzed" || analysis) && (
+        <Card className="w-full max-w-md p-5 mt-8 shadow-lg border border-border bg-card">
+          <p className="text-base font-semibold text-foreground mb-3 flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2 text-teal-600" /> Analysis Results
           </p>
-          {analysisResult ? (
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line font-medium">
-              {analysisResult}
-            </p>
+          {analysis ? (
+            <div className="text-sm text-foreground space-y-2 font-medium">
+              <p>🎧 Duration: {analysis.duration ? analysis.duration.toFixed(2) : "—"} sec</p>
+              <p>🔊 RMS: {analysis.rms ? analysis.rms.toFixed(4) : "—"}</p>
+              <p>⚡ Zero Crossing Rate: {analysis.zcr ? analysis.zcr.toFixed(4) : "—"}</p>
+              <p>🎵 Tempo: {analysis.tempo_bpm ? analysis.tempo_bpm.toFixed(2) : "—"} BPM</p>
+            </div>
           ) : (
-            <p className="text-sm text-gray-400 italic">
-              Results will appear here after analysis...
-            </p>
+            <p className="text-gray-500 text-sm italic">Waiting for analysis data…</p>
           )}
         </Card>
-      </div>
+      )}
+
+      <audio ref={audioRef} hidden controls />
     </div>
   );
 }

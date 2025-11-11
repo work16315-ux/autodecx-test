@@ -1,0 +1,108 @@
+from flask import Flask, request, jsonify
+import os
+import subprocess
+from shlex import quote
+import google.generativeai as genai
+
+app = Flask(__name__)
+
+# --- Configure Gemini API ---
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    raise ValueError("GOOGLE_API_KEY not set! Run: setx GOOGLE_API_KEY your_api_key_here (then open new terminal) "
+                     "or set $env:GOOGLE_API_KEY in this session before running app.py")
+
+# configure SDK
+genai.configure(api_key=api_key)
+
+# choose a generation-capable model you have access to; update if needed
+# (If you get a 404, run the list_models command and pick one from the printed list.)
+model = genai.GenerativeModel("models/gemini-2.5-flash")
+
+# --- Routes ---
+
+@app.route('/')
+def home():
+    return "Flask server is running!"
+
+@app.route('/ask', methods=['POST'])
+def ask():
+    """Use the Python Gemini SDK to generate content directly."""
+    data = request.get_json(force=True)
+    prompt = (data.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "Missing 'prompt'"}), 400
+    try:
+        response = model.generate_content(prompt)
+        text = getattr(response, "text", None)
+        if text is None:
+            text = str(response)
+        return jsonify({"response": text.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/gemini-cli', methods=['POST'])
+def gemini_cli():
+    """
+    Run an arbitrary Gemini CLI command and return only the stdout text.
+    (This uses subprocess and shell=True for convenience. Use carefully.)
+    Request JSON: {"command": "gemini prompt \"Explain X\""}
+    """
+    try:
+        data = request.get_json(force=True)
+        command = data.get("command")
+        if not command:
+            return jsonify({"error": "Missing 'command'"}), 400
+
+        # Run the command (shell=True so the full gemini CLI string works)
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=60)
+
+        if result.returncode != 0:
+            return jsonify({"error": result.stderr.strip()}), 500
+
+        return jsonify({"response": result.stdout.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/run-prompt', methods=['POST'])
+def run_prompt():
+    """
+    Safe endpoint for running a Claude Sonnet prompt through Gemini SDK.
+    Accepts JSON: {"prompt":"..."}
+    Uses the Python SDK (no shell execution).
+    """
+    try:
+        data = request.get_json(force=True)
+        prompt = (data.get("prompt") or "").strip()
+        if not prompt:
+            return jsonify({"error": "Missing 'prompt'"}), 400
+
+        # Use SDK directly (safer than spawning CLI)
+        response = model.generate_content(prompt)
+        text = getattr(response, "text", None)
+        if text is None:
+            text = str(response)
+        return jsonify({"response": text.strip()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/test-script', methods=['GET'])
+def test_script():
+    """
+    Calls test_script.run_test() — test_script.py must be in the same folder as app.py.
+    """
+    try:
+        from test_script import run_test
+    except Exception as e:
+        return jsonify({"error": f"test_script import failed: {e}"}), 500
+
+    try:
+        result = run_test("Developer")
+        return jsonify({"message": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Main entry ---
+if __name__ == "__main__":
+    # run on localhost for development
+    app.run(debug=True)

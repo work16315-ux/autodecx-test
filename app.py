@@ -1,66 +1,72 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os
 import subprocess
-import google.generativeai as genai
+import numpy as np
+import librosa
 
 app = Flask(__name__)
+CORS(app)
 
-# --- Configure Gemini API ---
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    raise ValueError("GOOGLE_API_KEY not set! Run: setx GOOGLE_API_KEY your_api_key_here")
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel("models/gemini-2.5-flash")
+@app.route("/upload", methods=["POST"])
+def upload_audio():
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
 
-# --- Routes ---
+    file = request.files["audio"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
 
-@app.route('/')
-def home():
-    return "Flask server is running!"
+    # Save uploaded file
+    original_path = os.path.join(UPLOAD_FOLDER, "original_" + file.filename)
+    file.save(original_path)
 
-@app.route('/ask', methods=['POST'])
-def ask():
-    data = request.get_json()
-    prompt = data.get("prompt", "")
-    if not prompt:
-        return jsonify({"error": "Missing prompt"}), 400
+    # Convert to 16-bit PCM WAV
+    converted_path = os.path.join(UPLOAD_FOLDER, "recording_converted.wav")
     try:
-        response = model.generate_content(prompt)
-        return jsonify({"response": response.text})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        subprocess.run([
+            "ffmpeg",
+            "-y",
+            "-i", original_path,
+            "-ac", "1",              # mono
+            "-ar", "44100",          # standard sample rate
+            "-f", "wav",
+            converted_path
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        print("FFmpeg error:", e.stderr.decode())
+        return jsonify({"error": "FFmpeg conversion failed"}), 500
 
-
-@app.route('/gemini-cli', methods=['POST'])
-def gemini_cli():
-    """Run Gemini CLI commands and return only the text output."""
+    # Load and analyze audio
     try:
-        data = request.get_json()
-        command = data.get("command")
+        y, sr = librosa.load(converted_path, sr=None)
+        print(f"Loaded samples: {len(y)}, Sample Rate: {sr}")
 
-        if not command:
-            return jsonify({"error": "Missing 'command' in request"}), 400
+        if len(y) == 0:
+            return jsonify({"error": "Audio file loaded empty"}), 500
 
-        # Run the Gemini CLI command
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True
-        )
+        duration = librosa.get_duration(y=y, sr=sr)
+        rms = float(np.mean(librosa.feature.rms(y=y)))
+        zcr = float(np.mean(librosa.feature.zero_crossing_rate(y)))
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
 
-        # If the command failed, show stderr
-        if result.returncode != 0:
-            return jsonify({"error": result.stderr.strip()}), 500
-
-        # Only return the text output
-        return jsonify({"response": result.stdout.strip()})
+        return jsonify({
+            "message": "✅ Audio received and analyzed successfully",
+            "analysis": {
+                "duration": round(duration, 2),
+                "rms": round(rms, 4),
+                "zcr": round(zcr, 4),
+                "tempo_bpm": round(float(tempo), 2)
+            }
+        }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("Librosa analysis error:", str(e))
+        return jsonify({"error": f"Audio analysis failed: {str(e)}"}), 500
 
 
-# --- Main entry ---
 if __name__ == "__main__":
     app.run(debug=True)
