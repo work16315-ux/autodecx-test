@@ -1,0 +1,127 @@
+2025-11-11 16:13:35,424 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,424 - __main__ - INFO - AutoDecX Audio Analysis Backend Initialized
+2025-11-11 16:13:35,424 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,426 - __main__ - INFO - 
+============================================================
+2025-11-11 16:13:35,434 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,450 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,976 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,976 - __main__ - INFO - AutoDecX Audio Analysis Backend Initialized
+2025-11-11 16:13:35,976 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,977 - __main__ - INFO - 
+============================================================
+2025-11-11 16:13:35,982 - __main__ - INFO - ============================================================
+2025-11-11 16:13:35,991 - __main__ - INFO - ============================================================
+2025-11-11 16:40:04,443 - __main__ - INFO - Incoming request: GET /api/vehicle-models
+2025-11-11 16:40:04,456 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 16:40:04,457 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 16:40:04,469 - __main__ - INFO - Response status: 404
+2025-11-11 16:40:04,470 - __main__ - INFO - Response size: 207 bytes
+2025-11-11 16:40:10,243 - __main__ - INFO - Incoming request: GET /api/vehicle-models
+2025-11-11 16:40:10,244 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 16:40:10,245 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 16:40:10,246 - __main__ - INFO - Response status: 404
+2025-11-11 16:40:10,246 - __main__ - INFO - Response size: 207 bytes
+2025-11-11 16:40:12,190 - __main__ - INFO - Incoming request: GET /api/vehicle-models
+2025-11-11 16:40:12,191 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 16:40:12,191 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 16:40:12,192 - __main__ - INFO - Response status: 404
+2025-11-11 16:40:12,192 - __main__ - INFO - Response size: 207 bytes
+2025-11-11 17:20:13,706 - __main__ - INFO - ============================================================
+2025-11-11 17:20:13,707 - __main__ - INFO - AutoDecX Audio Analysis Backend Initialized
+2025-11-11 17:20:13,708 - __main__ - INFO - ============================================================
+2025-11-11 17:20:13,719 - __main__ - INFO - 
+============================================================
+2025-11-11 17:20:13,726 - __main__ - INFO - ============================================================
+2025-11-11 17:20:13,754 - __main__ - INFO - ============================================================
+2025-11-11 17:20:14,429 - __main__ - INFO - ============================================================
+2025-11-11 17:20:14,429 - __main__ - INFO - AutoDecX Audio Analysis Backend Initialized
+2025-11-11 17:20:14,430 - __main__ - INFO - ============================================================
+2025-11-11 17:20:14,437 - __main__ - INFO - 
+============================================================
+2025-11-11 17:20:14,442 - __main__ - INFO - ============================================================
+2025-11-11 17:20:14,466 - __main__ - INFO - ============================================================
+2025-11-11 17:21:50,242 - __main__ - INFO - Incoming request: GET /api/vehicle-models
+2025-11-11 17:21:50,251 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 17:21:50,252 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 17:21:52,808 - __main__ - INFO - Response status: 200
+2025-11-11 17:21:52,809 - __main__ - INFO - Response size: 330 bytes
+2025-11-11 17:22:42,428 - __main__ - INFO - Incoming request: POST /upload
+2025-11-11 17:22:42,429 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 17:22:42,429 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 17:22:42,430 - __main__ - INFO - Content type: multipart/form-data; boundary=----WebKitFormBoundaryUBvackXDf3uwRbBr
+2025-11-11 17:22:42,431 - __main__ - INFO - Content length: 161015 bytes
+2025-11-11 17:22:42,432 - __main__ - INFO - ============================================================
+2025-11-11 17:22:42,433 - __main__ - INFO - [e109009d] NEW AUDIO UPLOAD REQUEST
+2025-11-11 17:22:42,433 - __main__ - INFO - ============================================================
+2025-11-11 17:22:42,445 - __main__ - INFO - [e109009d] Vehicle info received: {'manufacturer': 'Audi', 'year': '2019', 'model': 'A3', 'soundLocation': 'brakes'}
+2025-11-11 17:22:42,445 - __main__ - INFO - [e109009d] File received: recording.webm
+2025-11-11 17:22:42,446 - __main__ - INFO - [e109009d] Content type: audio/webm
+2025-11-11 17:22:42,448 - __main__ - INFO - [e109009d] Saving to: uploads\original_20251111_172242_15c436ee.webm
+2025-11-11 17:22:42,457 - __main__ - INFO - [e109009d] File saved successfully: 160,652 bytes
+2025-11-11 17:22:42,459 - __main__ - INFO - [e109009d] Starting FFmpeg conversion...
+2025-11-11 17:22:42,726 - __main__ - INFO - [e109009d] FFmpeg conversion complete in 0.26s
+2025-11-11 17:22:42,726 - __main__ - INFO - [e109009d] Starting audio analysis with librosa...
+2025-11-11 17:22:51,979 - __main__ - INFO - [e109009d] Audio loaded: duration=9.96s, sr=44100Hz, samples=439236
+2025-11-11 17:22:52,158 - __main__ - INFO - [e109009d] Basic features extracted: RMS=0.0462, ZCR=0.0880
+2025-11-11 17:22:57,144 - __main__ - INFO - [e109009d] Tempo detected: 123.0 BPM
+2025-11-11 17:22:57,324 - __main__ - INFO - [e109009d] Spectral features: centroid=4384.0Hz, rolloff=10414.3Hz, bandwidth=4892.1Hz
+2025-11-11 17:22:57,325 - __main__ - INFO - [e109009d] Analysis complete in 14.60s
+2025-11-11 17:22:57,328 - __main__ - INFO - [e109009d] Temporary files cleaned up
+2025-11-11 17:22:57,329 - __main__ - INFO - [e109009d] Running diagnostic analysis...
+2025-11-11 17:22:57,330 - __main__ - INFO - [e109009d] Vibration level: Normal (RMS=0.0462)
+2025-11-11 17:22:57,331 - __main__ - INFO - [e109009d] INFO: High frequency (4384.0Hz)
+2025-11-11 17:22:57,331 - __main__ - INFO - [e109009d] Pattern regularity: Normal (ZCR=0.0880)
+2025-11-11 17:22:57,332 - __main__ - WARNING - [e109009d] WARNING: Wide frequency spread (4892.1Hz)
+2025-11-11 17:22:57,332 - __main__ - WARNING - [e109009d] Overall assessment: WARNING
+2025-11-11 17:22:57,334 - __main__ - INFO - ============================================================
+2025-11-11 17:22:57,334 - __main__ - INFO - [e109009d] ANALYSIS COMPLETE
+2025-11-11 17:22:57,335 - __main__ - INFO - [e109009d] Primary Issue: Wide frequency spread - possible multiple simultaneous issues
+2025-11-11 17:22:57,335 - __main__ - INFO - [e109009d] Confidence: 80%
+2025-11-11 17:22:57,335 - __main__ - INFO - [e109009d] Total Issues: 2
+2025-11-11 17:22:57,336 - __main__ - INFO - [e109009d] Processing Time: 14.86s (conversion: 0.26s, analysis: 14.60s)
+2025-11-11 17:22:57,336 - __main__ - INFO - ============================================================
+2025-11-11 17:22:57,337 - __main__ - INFO - Response status: 200
+2025-11-11 17:22:57,337 - __main__ - INFO - Response size: 739 bytes
+2025-11-11 17:36:47,531 - __main__ - INFO - Incoming request: GET /api/vehicle-models
+2025-11-11 17:36:47,546 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 17:36:47,547 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 17:36:50,487 - __main__ - INFO - Response status: 200
+2025-11-11 17:36:50,488 - __main__ - INFO - Response size: 951 bytes
+2025-11-11 17:38:09,543 - __main__ - INFO - Incoming request: POST /upload
+2025-11-11 17:38:09,544 - __main__ - INFO - Remote address: 127.0.0.1
+2025-11-11 17:38:09,544 - __main__ - INFO - User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+2025-11-11 17:38:09,544 - __main__ - INFO - Content type: multipart/form-data; boundary=----WebKitFormBoundarykPAH3lijUcBQ0jUS
+2025-11-11 17:38:09,545 - __main__ - INFO - Content length: 161026 bytes
+2025-11-11 17:38:09,546 - __main__ - INFO - ============================================================
+2025-11-11 17:38:09,547 - __main__ - INFO - [337cd23b] NEW AUDIO UPLOAD REQUEST
+2025-11-11 17:38:09,547 - __main__ - INFO - ============================================================
+2025-11-11 17:38:09,557 - __main__ - INFO - [337cd23b] Vehicle info received: {'manufacturer': 'Ford', 'year': '2024', 'model': 'Medford Steel', 'soundLocation': 'brakes'}
+2025-11-11 17:38:09,558 - __main__ - INFO - [337cd23b] File received: recording.webm
+2025-11-11 17:38:09,558 - __main__ - INFO - [337cd23b] Content type: audio/webm
+2025-11-11 17:38:09,562 - __main__ - INFO - [337cd23b] Saving to: uploads\original_20251111_173809_b87a038d.webm
+2025-11-11 17:38:09,566 - __main__ - INFO - [337cd23b] File saved successfully: 160,652 bytes
+2025-11-11 17:38:09,568 - __main__ - INFO - [337cd23b] Starting FFmpeg conversion...
+2025-11-11 17:38:09,677 - __main__ - INFO - [337cd23b] FFmpeg conversion complete in 0.11s
+2025-11-11 17:38:09,678 - __main__ - INFO - [337cd23b] Starting audio analysis with librosa...
+2025-11-11 17:38:09,706 - __main__ - INFO - [337cd23b] Audio loaded: duration=9.96s, sr=44100Hz, samples=439236
+2025-11-11 17:38:09,759 - __main__ - INFO - [337cd23b] Basic features extracted: RMS=0.0147, ZCR=0.1335
+2025-11-11 17:38:09,986 - __main__ - INFO - [337cd23b] Tempo detected: 143.6 BPM
+2025-11-11 17:38:10,243 - __main__ - INFO - [337cd23b] Spectral features: centroid=5495.4Hz, rolloff=12320.6Hz, bandwidth=5520.0Hz
+2025-11-11 17:38:10,244 - __main__ - INFO - [337cd23b] Analysis complete in 0.57s
+2025-11-11 17:38:10,246 - __main__ - INFO - [337cd23b] Temporary files cleaned up
+2025-11-11 17:38:10,247 - __main__ - INFO - [337cd23b] Running diagnostic analysis...
+2025-11-11 17:38:10,247 - __main__ - INFO - [337cd23b] Vibration level: Normal (RMS=0.0147)
+2025-11-11 17:38:10,248 - __main__ - WARNING - [337cd23b] WARNING: Very high frequency (5495.4Hz)
+2025-11-11 17:38:10,248 - __main__ - INFO - [337cd23b] Pattern regularity: Normal (ZCR=0.1335)
+2025-11-11 17:38:10,249 - __main__ - WARNING - [337cd23b] WARNING: Wide frequency spread (5520.0Hz)
+2025-11-11 17:38:10,249 - __main__ - WARNING - [337cd23b] Overall assessment: WARNING
+2025-11-11 17:38:10,250 - __main__ - INFO - ============================================================
+2025-11-11 17:38:10,250 - __main__ - INFO - [337cd23b] ANALYSIS COMPLETE
+2025-11-11 17:38:10,250 - __main__ - INFO - [337cd23b] Primary Issue: Very high-frequency noise - possible bearing wear or air leak
+2025-11-11 17:38:10,251 - __main__ - INFO - [337cd23b] Confidence: 80%
+2025-11-11 17:38:10,251 - __main__ - INFO - [337cd23b] Total Issues: 2
+2025-11-11 17:38:10,251 - __main__ - INFO - [337cd23b] Processing Time: 0.67s (conversion: 0.11s, analysis: 0.57s)
+2025-11-11 17:38:10,251 - __main__ - INFO - ============================================================
+2025-11-11 17:38:10,252 - __main__ - INFO - Response status: 200
+2025-11-11 17:38:10,253 - __main__ - INFO - Response size: 744 bytes
