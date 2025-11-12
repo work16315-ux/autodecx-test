@@ -55,9 +55,15 @@ logger.info("="*60)
 # FLASK CONFIGURATION
 # ============================================================
 
+# UPDATED: Allow Vercel frontend domain
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+        "origins": [
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173",
+            "https://*.vercel.app",  # Allow all Vercel deployments
+            "https://autodecx-test.vercel.app"  # Your specific domain (update this after deployment)
+        ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
@@ -610,8 +616,10 @@ if __name__ == '__main__':
     print("   GET  /api/vehicle-models → Vehicle model lookup")
     print("="*60 + "\n")
     
+    # UPDATED FOR PRODUCTION: Railway deployment
+    port = int(os.environ.get('PORT', 5000))
     app.run(
-        host='127.0.0.1',
-        port=5000,
-        debug=True
+        host='0.0.0.0',
+        port=port,
+        debug=False
     )
