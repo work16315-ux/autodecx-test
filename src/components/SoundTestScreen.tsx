@@ -123,7 +123,7 @@ export default function SoundTestScreen() {
     try {
       // Call backend API to get models
       const response = await fetch(
-        `http://127.0.0.1:5000/api/vehicle-models?manufacturer=${encodeURIComponent(manufacturer)}&year=${encodeURIComponent(year)}`
+        `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'}/api/vehicle-models?manufacturer=${encodeURIComponent(manufacturer)}&year=${encodeURIComponent(year)}`
       );
       
       if (response.ok) {
@@ -646,3 +646,4 @@ ${result.youtube_matches ? '\n🔗 Reference Videos:\n' + result.youtube_matches
     </div>
   );
 }
+
