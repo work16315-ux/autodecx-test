@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
-import './App.css'
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import './App_CHATGPT.css'
 
-const API_URL = 'https://autodecx-backend-747131025848.europe-west1.run.app'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
-// Vehicle manufacturers
 const MANUFACTURERS = [
   'Toyota', 'Volkswagen', 'BMW', 'Mercedes-Benz', 'Audi', 'Ford', 'Nissan',
   'Honda', 'Mazda', 'Hyundai', 'Kia', 'Chevrolet', 'Renault', 'Peugeot',
@@ -11,665 +11,392 @@ const MANUFACTURERS = [
   'Opel', 'Citroen', 'Subaru', 'Lexus', 'Infiniti', 'Jaguar', 'Porsche'
 ].sort()
 
-// Sound locations
-const SOUND_LOCATIONS = [
-  { id: 'engine', label: 'Engine', icon: '🔧' },
-  { id: 'front_left_wheel', label: 'Front Left Wheel', icon: '⚙️' },
-  { id: 'front_right_wheel', label: 'Front Right Wheel', icon: '⚙️' },
-  { id: 'rear_left_wheel', label: 'Rear Left Wheel', icon: '⚙️' },
-  { id: 'rear_right_wheel', label: 'Rear Right Wheel', icon: '⚙️' },
-  { id: 'exhaust', label: 'Exhaust', icon: '💨' },
-  { id: 'transmission', label: 'Transmission', icon: '⚡' },
-  { id: 'other', label: 'Other/Unknown', icon: '❓' }
-]
-
-// When does it occur options
-const OCCURRENCE_OPTIONS = [
-  { id: 'cold_start', label: 'Cold start (first start)' },
-  { id: 'warm_engine', label: 'Warm engine' },
-  { id: 'accelerating', label: 'When accelerating' },
-  { id: 'braking', label: 'When braking' },
-  { id: 'turning', label: 'When turning' },
-  { id: 'idle', label: 'At idle' },
-  { id: 'certain_speeds', label: 'At certain speeds' },
-  { id: 'constantly', label: 'Constantly' }
-]
-
-// Duration options
-const DURATION_OPTIONS = [
-  'Just started today',
-  'A few days',
-  '1-2 weeks',
-  '1 month',
-  '2-3 months',
-  'More than 3 months',
-  'Not sure'
-]
-
-// Progression options
-const PROGRESSION_OPTIONS = [
-  { id: 'getting_worse', label: 'Getting worse' },
-  { id: 'staying_same', label: 'Staying the same' },
-  { id: 'getting_better', label: 'Getting better' },
-  { id: 'comes_and_goes', label: 'Comes and goes' }
-]
+const YEARS = Array.from({ length: 30 }, (_, i) => (new Date().getFullYear() - i).toString())
 
 function App() {
-  // Multi-step form state
-  const [currentStep, setCurrentStep] = useState(1)
-  const totalSteps = 7
-
-  // Vehicle info
-  const [manufacturer, setManufacturer] = useState('')
-  const [year, setYear] = useState('')
-  const [models, setModels] = useState<string[]>([])
-  const [loadingModels, setLoadingModels] = useState(false)
-  const [model, setModel] = useState('')
-  const [soundLocation, setSoundLocation] = useState('')
-
-  // Enhanced context fields
-  const [audioDescription, setAudioDescription] = useState('')
-  const [occurrence, setOccurrence] = useState<string[]>([])
-  const [issueDuration, setIssueDuration] = useState('')
-  const [progression, setProgression] = useState('')
-  const [recentWork, setRecentWork] = useState('')
-
-  // Audio recording
+  const [step, setStep] = useState<'home' | 'vehicle' | 'context' | 'analyzing' | 'results'>('home')
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const timerRef = useRef<number | null>(null)
-
-  // Voice note
-  const [isRecordingVoice, setIsRecordingVoice] = useState(false)
-  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null)
-  const [voiceTime, setVoiceTime] = useState(0)
-  const voiceRecorderRef = useRef<MediaRecorder | null>(null)
-  const voiceChunksRef = useRef<Blob[]>([])
-  const voiceTimerRef = useRef<number | null>(null)
-
-  // Analysis
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysisProgress, setAnalysisProgress] = useState(0)
+  const [textInput, setTextInput] = useState('')
+  const [manufacturer, setManufacturer] = useState('')
+  const [year, setYear] = useState('')
+  const [model, setModel] = useState('')
+  const [models, setModels] = useState<string[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [soundLocation, setSoundLocation] = useState('')
+  const [occurrence, setOccurrence] = useState('')
+  const [description, setDescription] = useState('')
   const [results, setResults] = useState<any>(null)
-  const [error, setError] = useState('')
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
-  // Fetch models when manufacturer and year are selected
-  const fetchModels = async (mfr: string, yr: string) => {
-    if (!mfr || !yr) return
-    
-    setLoadingModels(true)
-    try {
-      const response = await fetch(
-        `${API_URL}/api/vehicle-models?manufacturer=${encodeURIComponent(mfr)}&year=${yr}`
-      )
-      const data = await response.json()
-      
-      if (data.models && data.models.length > 0) {
-        setModels(data.models)
-      } else {
-        setModels(['Please type model manually'])
+  useEffect(() => {
+    const fetchModels = async () => {
+      if (!manufacturer || !year) {
+        setModels([])
+        setModel('')
+        return
       }
-    } catch (err) {
-      console.error('Error fetching models:', err)
-      setModels(['Error loading models - type manually'])
-    } finally {
-      setLoadingModels(false)
+      setLoadingModels(true)
+      try {
+        const response = await fetch(`${API_URL}/api/vehicle-models?manufacturer=${encodeURIComponent(manufacturer)}&year=${year}`)
+        const data = await response.json()
+        if (data.models && Array.isArray(data.models) && data.models.length > 0) {
+          setModels(data.models)
+        } else {
+          setModels([])
+        }
+      } catch (err) {
+        console.error('Error:', err)
+        setModels([])
+      } finally {
+        setLoadingModels(false)
+      }
     }
-  }
+    fetchModels()
+  }, [manufacturer, year])
 
-  // Handle manufacturer change
-  const handleManufacturerChange = (value: string) => {
-    setManufacturer(value)
-    setModels([])
-    setModel('')
-    if (value && year) {
-      fetchModels(value, year)
-    }
-  }
-
-  // Handle year change
-  const handleYearChange = (value: string) => {
-    setYear(value)
-    setModels([])
-    setModel('')
-    if (manufacturer && value) {
-      fetchModels(manufacturer, value)
-    }
-  }
-
-  // Toggle occurrence checkbox
-  const toggleOccurrence = (id: string) => {
-    if (occurrence.includes(id)) {
-      setOccurrence(occurrence.filter(o => o !== id))
-    } else {
-      setOccurrence([...occurrence, id])
-    }
-  }
-
-  // Start recording audio
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      setIsRecording(true)
+      
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
-      chunksRef.current = []
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data)
-        }
-      }
-
+      const chunks: Blob[] = []
+      
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const blob = new Blob(chunks, { type: 'audio/webm' })
         setAudioBlob(blob)
         stream.getTracks().forEach(track => track.stop())
+        setIsRecording(false)
       }
-
+      
       mediaRecorder.start()
-      setIsRecording(true)
-      setRecordingTime(0)
-
-      // Timer
-      timerRef.current = window.setInterval(() => {
-        setRecordingTime(prev => {
-          if (prev >= 10) {
-            stopRecording()
-            return 10
-          }
-          return prev + 1
-        })
-      }, 1000)
-    } catch (err) {
-      setError('Microphone access denied. Please allow microphone access.')
-    }
-  }
-
-  // Stop recording
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-      }
-    }
-  }
-
-  // Start voice note
-  const startVoiceNote = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
-      voiceRecorderRef.current = mediaRecorder
-      voiceChunksRef.current = []
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          voiceChunksRef.current.push(e.data)
+      
+      const interval = setInterval(() => {
+        setRecordingTime(prev => prev + 0.1)
+      }, 100)
+      
+      setTimeout(() => {
+        clearInterval(interval)
+        if (mediaRecorder.state === 'recording') {
+          mediaRecorder.stop()
         }
-      }
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(voiceChunksRef.current, { type: 'audio/webm' })
-        setVoiceBlob(blob)
-        stream.getTracks().forEach(track => track.stop())
-      }
-
-      mediaRecorder.start()
-      setIsRecordingVoice(true)
-      setVoiceTime(0)
-
-      voiceTimerRef.current = window.setInterval(() => {
-        setVoiceTime(prev => {
-          if (prev >= 10) {
-            stopVoiceNote()
-            return 10
-          }
-          return prev + 1
-        })
-      }, 1000)
+      }, 10000)
+      
     } catch (err) {
-      setError('Microphone access denied')
+      console.error('Microphone error:', err)
+      alert('Could not access microphone')
+      setIsRecording(false)
     }
   }
 
-  // Stop voice note
-  const stopVoiceNote = () => {
-    if (voiceRecorderRef.current && isRecordingVoice) {
-      voiceRecorderRef.current.stop()
-      setIsRecordingVoice(false)
-      if (voiceTimerRef.current) {
-        clearInterval(voiceTimerRef.current)
-      }
-    }
-  }
-
-  // Analyze audio
-  const analyzeAudio = async () => {
-    if (!audioBlob) return
-
-    setIsAnalyzing(true)
-    setAnalysisProgress(0)
-    setError('')
-    setCurrentStep(7)
-
-    const formData = new FormData()
-    formData.append('audio', audioBlob, 'recording.webm')
+  const submitForAnalysis = async () => {
+    setStep('analyzing')
     
-    const vehicleInfo = {
-      manufacturer,
-      year: parseInt(year),
-      model,
-      soundLocation
-    }
-    formData.append('vehicle_info', JSON.stringify(vehicleInfo))
-    
-    // Add enhanced context
-    if (audioDescription) formData.append('audio_description', audioDescription)
-    if (occurrence.length > 0) formData.append('occurrence', JSON.stringify(occurrence))
-    if (issueDuration) formData.append('issue_duration', issueDuration)
-    if (progression) formData.append('progression', progression)
-    if (recentWork) formData.append('recent_work', recentWork)
-    if (voiceBlob) formData.append('voice_note', voiceBlob, 'voice.webm')
-
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setAnalysisProgress(prev => Math.min(prev + 10, 90))
-    }, 1000)
-
     try {
-      const response = await fetch(`${API_URL}/upload`, {
+      const formData = new FormData()
+      if (audioBlob) {
+        formData.append('audio', audioBlob, 'recording.webm')
+      }
+      formData.append('manufacturer', manufacturer)
+      formData.append('year', year)
+      formData.append('model', model)
+      formData.append('soundLocation', soundLocation)
+      formData.append('occurrence', occurrence)
+      formData.append('description', description)
+      
+      const response = await fetch(`${API_URL}/api/analyze`, {
         method: 'POST',
         body: formData
       })
-
-      const data = await response.json()
       
-      clearInterval(progressInterval)
-      setAnalysisProgress(100)
+      const data = await response.json()
       
       if (data.success) {
         setResults(data)
+        setSessionId(data.session_id)
+        setStep('results')
       } else {
-        setError(data.error || 'Analysis failed')
+        alert(data.error || 'Analysis failed')
+        setStep('context')
       }
-    } catch (err: any) {
-      clearInterval(progressInterval)
-      setError(err.message || 'Network error')
+    } catch (err) {
+      console.error('Analysis error:', err)
+      alert('Connection error')
+      setStep('context')
+    }
+  }
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !sessionId) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setIsChatLoading(true)
+
+    try {
+      const response = await fetch(`${API_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          message: userMessage
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error.' }])
+      }
+    } catch (err) {
+      console.error('Chat error:', err)
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Connection error.' }])
     } finally {
-      setIsAnalyzing(false)
-    }
-  }
-
-  // Navigation
-  const nextStep = () => {
-    if (currentStep < totalSteps) setCurrentStep(currentStep + 1)
-  }
-
-  const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1)
-  }
-
-  const canProceed = () => {
-    switch(currentStep) {
-      case 1: return manufacturer && year && model
-      case 2: return soundLocation
-      case 3: return true // Description is optional
-      case 4: return occurrence.length > 0
-      case 5: return true // All optional
-      case 6: return audioBlob !== null
-      default: return true
-    }
-  }
-
-  // Render step content
-  const renderStep = () => {
-    switch(currentStep) {
-      case 1:
-        return (
-          <div className="step-content">
-            <h2>🚗 Select Your Vehicle</h2>
-            
-            <div className="form-group">
-              <label>Manufacturer</label>
-              <select 
-                value={manufacturer} 
-                onChange={(e) => handleManufacturerChange(e.target.value)}
-                className="form-select"
-              >
-                <option value="">Select manufacturer...</option>
-                {MANUFACTURERS.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Year</label>
-              <select 
-                value={year} 
-                onChange={(e) => handleYearChange(e.target.value)}
-                className="form-select"
-                disabled={!manufacturer}
-              >
-                <option value="">Select year...</option>
-                {Array.from({length: 36}, (_, i) => 2025 - i).map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Model</label>
-              {loadingModels ? (
-                <div className="loading">Loading models...</div>
-              ) : (
-                <select 
-                  value={model} 
-                  onChange={(e) => setModel(e.target.value)}
-                  className="form-select"
-                  disabled={!year || models.length === 0}
-                >
-                  <option value="">Select model...</option>
-                  {models.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </div>
-        )
-
-      case 2:
-        return (
-          <div className="step-content">
-            <h2>📍 Where is the sound coming from?</h2>
-            <div className="location-grid">
-              {SOUND_LOCATIONS.map(loc => (
-                <button
-                  key={loc.id}
-                  className={`location-btn ${soundLocation === loc.id ? 'selected' : ''}`}
-                  onClick={() => setSoundLocation(loc.id)}
-                >
-                  <span className="icon">{loc.icon}</span>
-                  <span className="label">{loc.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )
-
-      case 3:
-        return (
-          <div className="step-content">
-            <h2>📝 Describe the sound (optional)</h2>
-            <p className="hint">Be specific about what you hear</p>
-            <textarea
-              value={audioDescription}
-              onChange={(e) => setAudioDescription(e.target.value)}
-              placeholder="E.g., 'Squealing when I brake' or 'Rattling from engine on cold start'"
-              maxLength={200}
-              rows={4}
-              className="form-textarea"
-            />
-            <div className="char-count">{audioDescription.length}/200</div>
-            
-            <div className="voice-note-section">
-              <p className="hint">Or record a voice description (10 sec max)</p>
-              {!voiceBlob ? (
-                <button 
-                  onClick={isRecordingVoice ? stopVoiceNote : startVoiceNote}
-                  className={`voice-btn ${isRecordingVoice ? 'recording' : ''}`}
-                >
-                  {isRecordingVoice ? `🔴 Recording... ${voiceTime}s` : '🎤 Record Voice Note'}
-                </button>
-              ) : (
-                <div className="voice-recorded">
-                  ✅ Voice note recorded ({voiceTime}s)
-                  <button onClick={() => setVoiceBlob(null)} className="btn-small">Re-record</button>
-                </div>
-              )}
-            </div>
-          </div>
-        )
-
-      case 4:
-        return (
-          <div className="step-content">
-            <h2>⏰ When does the sound happen?</h2>
-            <p className="hint">Select all that apply</p>
-            <div className="checkbox-group">
-              {OCCURRENCE_OPTIONS.map(opt => (
-                <label key={opt.id} className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={occurrence.includes(opt.id)}
-                    onChange={() => toggleOccurrence(opt.id)}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )
-
-      case 5:
-        return (
-          <div className="step-content">
-            <h2>📅 Additional Information</h2>
-            
-            <div className="form-group">
-              <label>How long have you noticed this?</label>
-              <select 
-                value={issueDuration} 
-                onChange={(e) => setIssueDuration(e.target.value)}
-                className="form-select"
-              >
-                <option value="">Select duration...</option>
-                {DURATION_OPTIONS.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Has it gotten worse?</label>
-              <div className="radio-group">
-                {PROGRESSION_OPTIONS.map(opt => (
-                  <label key={opt.id} className="radio-label">
-                    <input
-                      type="radio"
-                      name="progression"
-                      value={opt.id}
-                      checked={progression === opt.id}
-                      onChange={(e) => setProgression(e.target.value)}
-                    />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Any recent repairs or changes? (optional)</label>
-              <input
-                type="text"
-                value={recentWork}
-                onChange={(e) => setRecentWork(e.target.value)}
-                placeholder="E.g., 'Oil change last week'"
-                className="form-input"
-              />
-            </div>
-          </div>
-        )
-
-      case 6:
-        return (
-          <div className="step-content">
-            <h2>🎤 Record the Sound</h2>
-            <p className="hint">Record for 10 seconds</p>
-            
-            <div className="recorder-container">
-              {!audioBlob ? (
-                <>
-                  <div className="recorder-display">
-                    <div className="mic-icon">🎤</div>
-                    <div className="timer">{recordingTime} / 10 seconds</div>
-                  </div>
-                  <button 
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`record-btn ${isRecording ? 'recording' : ''}`}
-                  >
-                    {isRecording ? '⏸ Stop Recording' : '● Start Recording'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="recorded">
-                    ✅ Audio recorded ({recordingTime} seconds)
-                  </div>
-                  <button onClick={() => setAudioBlob(null)} className="btn-secondary">
-                    🔄 Re-record
-                  </button>
-                </>
-              )}
-            </div>
-
-            {error && <div className="error-message">{error}</div>}
-          </div>
-        )
-
-      case 7:
-        if (isAnalyzing) {
-          return (
-            <div className="step-content">
-              <h2>🔍 Analyzing...</h2>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{width: `${analysisProgress}%`}}></div>
-              </div>
-              <p>{analysisProgress}%</p>
-              <div className="analysis-steps">
-                <div className={analysisProgress >= 20 ? 'done' : 'pending'}>• Processing audio...</div>
-                <div className={analysisProgress >= 40 ? 'done' : 'pending'}>• Analyzing frequency...</div>
-                <div className={analysisProgress >= 60 ? 'done' : 'pending'}>• Matching references...</div>
-                <div className={analysisProgress >= 80 ? 'done' : 'pending'}>• AI diagnosis...</div>
-              </div>
-            </div>
-          )
-        }
-
-        if (results) {
-          return (
-            <div className="step-content results">
-              <h2>✅ Diagnosis Complete</h2>
-              
-              <div className="diagnosis-card">
-                <h3>🔧 DIAGNOSIS</h3>
-                <p className="diagnosis-text">{results.predicted_issue}</p>
-                <div className="confidence">
-                  <span>Confidence: {Math.round(results.confidence * 100)}%</span>
-                  <div className="confidence-bar">
-                    <div 
-                      className="confidence-fill" 
-                      style={{width: `${results.confidence * 100}%`}}
-                    ></div>
-                  </div>
-                </div>
-                {results.ai_powered && <div className="ai-badge">✨ AI-Powered</div>}
-              </div>
-
-              <div className="technical-details">
-                <h3>📊 Technical Details</h3>
-                <ul>
-                  <li>Frequency: {Math.round(results.metrics.dominant_frequency)} Hz</li>
-                  <li>Vibration: {(results.metrics.vibration_level * 100).toFixed(1)}%</li>
-                  <li>Duration: {results.metrics.duration}s</li>
-                </ul>
-              </div>
-
-              {results.issues && results.issues.length > 0 && (
-                <div className="issues-list">
-                  <h3>⚠️ Issues Detected</h3>
-                  <ul>
-                    {results.issues.map((issue: any, i: number) => (
-                      <li key={i} className={`issue-${issue.severity}`}>
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <button onClick={() => window.location.reload()} className="btn-primary">
-                🔄 New Diagnosis
-              </button>
-            </div>
-          )
-        }
-
-        return null
-
-      default:
-        return null
+      setIsChatLoading(false)
     }
   }
 
   return (
     <div className="app">
-      <header>
-        <h1>🚗 AutoDecx</h1>
-        <p>AI-Powered Car Diagnostics</p>
+      <header className="header">
+        <button className="menu-btn">☰</button>
+        <div className="header-title">AutoDecX</div>
+        <button className="theme-toggle-btn">🌙</button>
       </header>
 
-      <div className="progress-indicator">
-        {Array.from({length: totalSteps}, (_, i) => i + 1).map(step => (
-          <div 
-            key={step} 
-            className={`progress-dot ${step === currentStep ? 'active' : ''} ${step < currentStep ? 'completed' : ''}`}
-          >
-            {step < currentStep ? '✓' : step}
-          </div>
-        ))}
-      </div>
+      <main className="main-content">
+        <AnimatePresence mode="wait">
+          {step === 'home' && (
+            <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="home-container">
+              <div className="content-area">
+                <p className="app-description">
+                  AI-powered vehicle diagnostics to help you identify and solve car issues quickly
+                </p>
 
-      <div className="content">
-        {renderStep()}
-      </div>
+                <div className="quick-prompts">
+                  <button className="prompt-pill" onClick={() => { setDescription('Squealing brake noise'); setTextInput('Squealing brake noise'); }}>
+                    Squealing brake noise
+                  </button>
+                  <button className="prompt-pill" onClick={() => { setDescription('Engine knocking sound'); setTextInput('Engine knocking sound'); }}>
+                    Engine knocking sound
+                  </button>
+                  <button className="prompt-pill" onClick={() => { setDescription('Grinding when turning'); setTextInput('Grinding when turning'); }}>
+                    Grinding when turning
+                  </button>
+                  <button className="prompt-pill" onClick={() => { setDescription('Rattling from exhaust'); setTextInput('Rattling from exhaust'); }}>
+                    Rattling from exhaust
+                  </button>
+                  <button className="prompt-pill" onClick={() => { setDescription('Whistling at high speeds'); setTextInput('Whistling at high speeds'); }}>
+                    Whistling at high speeds
+                  </button>
+                  <button className="prompt-pill" onClick={() => { setDescription('Clunking over bumps'); setTextInput('Clunking over bumps'); }}>
+                    Clunking over bumps
+                  </button>
+                </div>
+              </div>
 
-      {currentStep < 7 && (
-        <div className="navigation">
-          {currentStep > 1 && (
-            <button onClick={prevStep} className="btn-secondary">
-              ← Back
-            </button>
+              <div className="bottom-nav">
+                <input
+                  type="text"
+                  className="bottom-text-input"
+                  placeholder="Describe your vehicle issue..."
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                />
+                
+                <div className="nav-actions">
+                  <button className="nav-icon-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                  </button>
+
+                  <button 
+                    className={`record-btn ${isRecording ? 'recording' : ''} ${audioBlob ? 'recorded' : ''}`}
+                    onClick={isRecording ? () => {} : audioBlob ? () => setStep('vehicle') : startRecording}
+                  >
+                    {isRecording ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="#ef4444">
+                        <circle cx="12" cy="12" r="8"/>
+                      </svg>
+                    ) : audioBlob ? (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                        <polyline points="12 5 19 12 12 19"/>
+                      </svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                      </svg>
+                    )}
+                  </button>
+
+                  <button className="nav-icon-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {isRecording && (
+                  <div className="recording-indicator">
+                    Recording: {recordingTime.toFixed(1)}s
+                  </div>
+                )}
+
+                {audioBlob && !isRecording && (
+                  <div className="recording-indicator">
+                    ✓ Recording captured: {recordingTime.toFixed(1)}s
+                  </div>
+                )}
+              </div>
+            </motion.div>
           )}
-          {currentStep < 6 ? (
-            <button 
-              onClick={nextStep} 
-              disabled={!canProceed()}
-              className="btn-primary"
-            >
-              Continue →
-            </button>
-          ) : (
-            <button 
-              onClick={analyzeAudio} 
-              disabled={!audioBlob || isAnalyzing}
-              className="btn-primary"
-            >
-              🔍 Analyze Sound
-            </button>
+
+          {step === 'vehicle' && (
+            <motion.div key="vehicle" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <div className="selection-card">
+                <h2>Vehicle Information</h2>
+                <p className="subtitle">A few more details will help improve accuracy</p>
+                
+                <div className="form-group">
+                  <label>Manufacturer</label>
+                  <select value={manufacturer} onChange={(e) => setManufacturer(e.target.value)}>
+                    <option value="">Select manufacturer</option>
+                    {MANUFACTURERS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Year</label>
+                  <select value={year} onChange={(e) => setYear(e.target.value)}>
+                    <option value="">Select year</option>
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Model</label>
+                  <select value={model} onChange={(e) => setModel(e.target.value)} disabled={!year || models.length === 0}>
+                    <option value="">{loadingModels ? 'Loading...' : !year ? 'Select year first' : 'Select model'}</option>
+                    {models.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <button className="btn-primary" onClick={() => setStep('context')} disabled={!manufacturer || !year || !model}>
+                  Continue
+                </button>
+              </div>
+            </motion.div>
           )}
-        </div>
-      )}
+
+          {step === 'context' && (
+            <motion.div key="context" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <div className="selection-card">
+                <h2>Additional Context</h2>
+                <p className="subtitle">These details help improve diagnosis accuracy</p>
+                
+                <div className="form-group">
+                  <label>Where's the sound from?</label>
+                  <div className="chip-group">
+                    {['Engine', 'Brakes', 'Wheels', 'Exhaust', 'Transmission', 'Suspension', 'Steering'].map(loc => (
+                      <button key={loc} className={`chip ${soundLocation === loc ? 'active' : ''}`} onClick={() => setSoundLocation(soundLocation === loc ? '' : loc)}>
+                        {loc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>When does it occur?</label>
+                  <div className="chip-group">
+                    {['Cold start', 'When running', 'Accelerating', 'Braking', 'Turning', 'Constantly'].map(occ => (
+                      <button key={occ} className={`chip ${occurrence === occ ? 'active' : ''}`} onClick={() => setOccurrence(occurrence === occ ? '' : occ)}>
+                        {occ}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Additional notes</label>
+                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the sound..." rows={3} />
+                </div>
+
+                <button className="btn-primary" onClick={submitForAnalysis}>
+                  Analyze Issue
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 'analyzing' && (
+            <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚙️</div>
+                <h2>Analyzing your recording...</h2>
+                <p style={{ color: '#666', marginTop: '0.5rem' }}>This may take a few moments</p>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 'results' && results && (
+            <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="results-container">
+                <span className="confidence-badge">{Math.round(results.confidence * 100)}% confidence</span>
+                <h2 className="diagnosis-title">{results.predicted_issue}</h2>
+
+                <div className="chat-section">
+                  <h3>Ask Follow-up Questions</h3>
+                  
+                  {chatMessages.length > 0 && (
+                    <div className="chat-messages">
+                      {chatMessages.map((msg, idx) => (
+                        <div key={idx} className={`chat-message ${msg.role}`}>
+                          <div className="message-content">{msg.content}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="chat-input-wrapper">
+                    <input
+                      type="text"
+                      className="chat-input"
+                      placeholder="Ask about repairs, costs..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                      disabled={isChatLoading}
+                    />
+                    <button className="action-btn send-btn" onClick={sendChatMessage} disabled={!chatInput.trim() || isChatLoading}>
+                      ➤
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
     </div>
   )
 }
 
 export default App
-
-
