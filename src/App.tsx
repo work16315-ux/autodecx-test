@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './App_CHATGPT.css'
+import AutoDecxHomeScreen from './components/AutoDecxHomeScreen'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
@@ -170,10 +171,7 @@ function App() {
   }
 
   return (
-    <div className="app">
-      {/* All UI elements removed - pure white screen */}
-      {/* All functions preserved for future UI implementation */}
-    </div>
+    <AutoDecxHomeScreen />
   )
 }
 
